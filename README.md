@@ -6,7 +6,7 @@ Requires Deft with Sync set up and at least one note synced.
 
 ## Dependencies
 
-Python 3 with `pynacl, `zstandard`, and `secret-tool` on Linux.
+Python 3 with `pynacl`, `zstandard`, and `secret-tool` on Linux.
 
 ```sh
 pip install pynacl zstandard
