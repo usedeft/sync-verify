@@ -1,4 +1,4 @@
-# deft-sync-verify
+# sync-verify
 
 Checks that a note stored by Deft Sync is encrypted with your key: fetches a record and its blob from the server, decrypts them, and confirms the blob's id is the keyed HMAC of its decrypted contents.
 
