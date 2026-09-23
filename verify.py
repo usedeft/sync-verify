@@ -17,7 +17,7 @@ import urllib.request
 import zstandard
 from nacl.bindings import crypto_aead_xchacha20poly1305_ietf_decrypt as aead_decrypt
 
-SERVER = "https://sync.usedeft.com"
+SERVER = "https://sync.usedeft.com/api"
 
 
 def fetch(path, token, key_epoch=None):
@@ -57,7 +57,8 @@ def unseal(subkey, sealed_message, associated_data, description):
     flags, nonce, ciphertext = sealed_message[1], sealed_message[2:26], sealed_message[26:]
 
     try:
-        plaintext = aead_decrypt(ciphertext, associated_data, nonce, subkey)
+        # the two header bytes are bound in ahead of the associated data
+        plaintext = aead_decrypt(ciphertext, sealed_message[:2] + associated_data, nonce, subkey)
     except Exception:
         sys.exit(f"FAILED: the {description} does not open (wrong key or altered bytes)")
 
@@ -68,17 +69,17 @@ def unseal(subkey, sealed_message, associated_data, description):
     return plaintext
 
 
-def open_record(master_key, meta):
+def open_record(master_key, sealed):
 
-    sealed_record = base64.b64decode(meta)
-    record = json.loads(unseal(derive_subkey(master_key, b"meta"), sealed_record, b"deft-sync-v1:record", "record"))
+    sealed_record = base64.b64decode(sealed)
+    record = json.loads(unseal(derive_subkey(master_key, b"record"), sealed_record, b"deft-sync-v1:record", "record"))
     return record["path"], bytes.fromhex(record["blob_id"])
 
 
 def find_note(master_key, token, key_epoch, wanted_path):
 
     for row in live_rows(token, key_epoch):
-        path, blob_id = open_record(master_key, row["meta"])
+        path, blob_id = open_record(master_key, row["record"])
         if wanted_path is None or path == wanted_path:
             return path, blob_id
 
@@ -90,7 +91,7 @@ def verify(master_key, token, wanted_path, print_contents):
     key_epoch = json.loads(fetch("/key", token))["key_epoch"]
 
     path, blob_id = find_note(master_key, token, key_epoch, wanted_path)
-    print(f"Record opens under the meta key: {path}")
+    print(f"Record opens under the record key: {path}")
 
     # fetched by the id inside the sealed record so the server's plaintext row is never trusted
     sealed_blob = fetch(f"/blobs/{blob_id.hex()}", token, key_epoch)
